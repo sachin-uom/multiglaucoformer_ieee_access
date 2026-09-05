@@ -2,6 +2,7 @@
 %Adjusted 05/13/2026 at the byline author names
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithm}
 \usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{multirow}
@@ -27,7 +28,7 @@
 %Your document starts from here ___________________________________________________
 \begin{document}
 \history{Date of publication xxxx 00, 0000, date of current version xxxx 00, 0000.}
-\doi{10.1109/ACCESS.2024.0429000}
+\doi{}
 
 \title{Transformer-Based Multimodal Fusion for Glaucoma Screening and Grading from Fundus and OCT Images}
 \author{\uppercase{Sachin Siriwardhana}\authorrefmark{1},
@@ -37,8 +38,8 @@
 \address[2]{EyRIS Pte Ltd, 60 MacPherson Road, Block 1 Siemens Centre 05-08, Singapore 348615, Singapore}
 
 \markboth
-{Author \headeretal: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS}
-{Author \headeretal: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS}
+{Sachin Siriwardhana \headeretal: Transformer-Based Multimodal Fusion for Glaucoma Screening and Grading}
+{Sachin Siriwardhana \headeretal: Transformer-Based Multimodal Fusion for Glaucoma Screening and Grading}
 
 \corresp{Corresponding author: Dulani Meedeniya (e-mail: dulanim@cse.mrt.ac.lk).}
 
@@ -72,12 +73,12 @@ The main contributions of this study are as follows:
     \item A unified multimodal framework for binary glaucoma screening and three-class severity grading using paired GAMMA fundus and OCT images.
     \item A controlled comparison of Early, Deep, and Late fusion strategies under a common preprocessing, optimization, and evaluation protocol.
     \item An OCT-MIL strategy for data-efficient aggregation of diagnostic evidence from selected OCT B-scans in a limited paired-data setting.
-    \item A comprehensive evaluation comprising official-split testing, five-fold cross-validation, bootstrap confidence intervals, calibration, and Grad-CAM-based explainability.
+    \item A comprehensive evaluation comprising official-split testing, five-fold cross-validation, bootstrap confidence intervals, and calibration.
+    \item Qualitative explanation and error analyses using fundus Grad-CAM, OCT slice-level Grad-CAM, and OCT-MIL attention.
 \end{itemize}
 
 Overall, this work compares fundus--OCT fusion at the input, latent, and decision levels within a unified transformer-based design, providing insight into the strengths and limitations of these strategies for ophthalmic decision support.
 
-\newpage
 \section{Related Work}
 \label{sec:related_work}
 
@@ -180,8 +181,6 @@ The present study instead examines supervised diagnostic fusion of paired fundus
 
 Overall, prior work reveals four main gaps. First, single-modality methods underuse the complementary information in fundus and OCT images. Second, multimodal studies commonly adopt fixed fusion designs, providing limited insight into the effect of interaction depth. Third, most GAMMA-based methods emphasize multiclass grading rather than referral-oriented binary screening. Finally, the limited size of paired fundus--OCT datasets increases the need for data-efficient OCT representation, controlled training and robust evaluation. These gaps motivate the systematic comparison of transformer-based Early, Deep, and Late Fusion strategies for both glaucoma screening and grading.
 
-\newpage
-
 \section{Materials and Methods}
 \label{sec:materials_methods}
 
@@ -195,7 +194,7 @@ The proposed framework integrates paired color fundus photographs and three-dime
 \begin{figure*}[!t]
     \centering
     \includegraphics[width=\textwidth]{images/overall-process-diagram.png}
-    \caption{Overall workflow of the proposed transformer-based multimodal framework for glaucoma screening and grading. Paired fundus photographs and OCT volumes undergo modality-specific preprocessing before being processed using Early, Deep, or Late Fusion. Model development includes task-specific training, hyperparameter optimization, calibration, evaluation, and post-hoc explainability analysis.}
+    \caption{Overview of preprocessing, multimodal fusion, training, calibration, evaluation, and explainability for glaucoma screening and grading.}
     \label{fig:overall-workflow}
 \end{figure*}
 
@@ -205,7 +204,7 @@ The original GAMMA labels are organized according to the target diagnostic task.
 
 Three fusion architectures are investigated: Early Fusion at the input level, Deep Fusion at the latent representation level, and Late Fusion at the decision level. All three architectures use an OCT multiple-instance learning (OCT-MIL) mechanism to aggregate evidence from a selected subset of OCT B-scans. The architectures support transformer-family backbones, including Vision Transformer (ViT), Data-efficient Image Transformer (DeiT), Swin Transformer, and CoAtNet variants. Optional modules, including Feature-wise Linear Modulation (FiLM), modality-token attention, latent gating, and confidence-aware decision fusion, are treated as model-selection choices rather than being activated uniformly across all experiments.
 
-Model configurations are selected through Optuna-based hyperparameter optimization, where the selected configurations are shown in Table~\ref{tab:selected_configs}. Following training, temperature scaling and decision-rule selection use validation data only; the official test set is reserved for final evaluation.
+Model configurations are selected through Optuna-based hyperparameter optimization, where the selected configurations are shown in Tables~\ref{tab:selected_configs_screening} and~\ref{tab:selected_configs_grading}. Following training, temperature scaling and decision-rule selection use validation data only; the official test set is reserved for final evaluation.
 
 \subsection{Dataset and Task Formulation}
 \label{subsec:dataset_tasks}
@@ -223,7 +222,7 @@ Representative fundus and OCT inputs are shown in Figure~\ref{fig:raw-fundus-oct
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=0.65\columnwidth]{images/raw-fundus-oct.png}
+    \includegraphics[width=\columnwidth]{images/raw-fundus-oct.png}
     \caption{Representative paired inputs from the GAMMA dataset: a color fundus photograph and a corresponding OCT B-scan.}
     \label{fig:raw-fundus-oct}
 \end{figure}
@@ -278,7 +277,7 @@ Consistent preprocessing is important for stable optimization and reproducible e
 \subsubsection{Fundus Image Preprocessing}
 \label{subsubsec:fundus_preprocessing}
 
-Each fundus photograph is first converted to grayscale for field-of-view detection. A binary foreground mask is generated using an intensity threshold, after which the largest external contour is identified as the retinal field. A square region centered on the contour centroid is extracted using the maximum dimension of its bounding box. This procedure removes non-informative black borders while preserving the complete retinal field rather than restricting the input to a manually localized optic-disc crop.
+Each fundus photograph is first converted to grayscale for field-of-view detection. A binary foreground mask is generated using an intensity threshold, after which the largest external contour is identified as the retinal field. A square region centered on the contour centroid is extracted using the maximum dimension of its bounding box (Algorithm~\ref{alg:fundus_roi}). This procedure removes non-informative black borders while preserving the complete retinal field rather than restricting the input to a manually localized optic-disc crop.
 
 Retaining the complete retinal field allows the model to use both optic-disc-related evidence and wider contextual information, including parapapillary and vascular patterns. If the retinal contour cannot be identified, the original image is resized without cropping as a deterministic fallback. The extracted region is resized to $224\times224$ pixels to match the standard input size of the pretrained backbone candidates.
 
@@ -287,10 +286,10 @@ Retaining the complete retinal field allows the model to use both optic-disc-rel
 
 Each GAMMA OCT volume contains 256 B-scans. Processing the complete volume with a dense three-dimensional model would create a high-dimensional learning problem relative to the 300 available paired samples. The framework therefore selects a compact subset of B-scans and aggregates their diagnostic evidence through OCT-MIL.
 
-The candidate B-scans are drawn from a symmetric window centered on an automatically estimated foveal slice. Foveal-center estimation is based on the vitreous--retina interface, with the selected center corresponding to the candidate slice exhibiting the maximum estimated interface arc length within a local search region. The candidate slice counts are treated as hyperparameters, enabling model selection to balance anatomical coverage, computational cost, and validation performance.
+The candidate B-scans are drawn from a symmetric window centered on an automatically estimated foveal slice. Foveal-center estimation is based on the vitreous--retina interface, with the selected center corresponding to the candidate slice exhibiting the maximum estimated interface arc length within a local search region (Algorithm~\ref{alg:foveal_detection}). The candidate slice counts are treated as hyperparameters, enabling model selection to balance anatomical coverage, computational cost, and validation performance.
 %The investigated slice counts are reported in Supplementary Table~S1.
 
-For each selected B-scan, a weighted gradient-based procedure identifies a square high-information region containing prominent retinal-layer boundaries. The method applies denoising, estimates image-gradient magnitude, and evaluates candidate square windows along the longer image dimension using a center-weighted gradient score. The highest-scoring region is extracted and resized to $224\times224$ pixels. This reduces background content and limits the geometric distortion that would otherwise result from directly resizing the complete non-square B-scan.
+For each selected B-scan, a weighted gradient-based procedure identifies a square high-information region containing prominent retinal-layer boundaries (Algorithm~\ref{alg:oct_roi}). The method applies denoising, estimates image-gradient magnitude, and evaluates candidate square windows along the longer image dimension using a center-weighted gradient score. The highest-scoring region is extracted and resized to $224\times224$ pixels. This reduces background content and limits the geometric distortion that would otherwise result from directly resizing the complete non-square B-scan.
 
 \subsubsection{Data Augmentation and Normalization}
 \label{subsubsec:augmentation_normalization}
@@ -300,6 +299,52 @@ Stochastic augmentation is applied only to the training data. The augmentation p
 Fundus photographs are normalized using ImageNet channel-wise statistics to remain compatible with ImageNet-pretrained model initialization. OCT B-scans are normalized using z-score normalization based on training-data intensity statistics. Validation and test samples undergo only deterministic cropping, resizing, and normalization, without stochastic augmentation.
 
 The offline stage performs computationally intensive deterministic operations, including fundus cropping, OCT slice selection, OCT region extraction, and resizing. The resulting images are cached to reduce repeated CPU processing. The online data loader subsequently performs stochastic augmentation, channel conversion, normalization, and tensor construction. This separation ensures consistent anatomical framing across fusion strategies while reducing training overhead.
+
+\begin{algorithm}[!t]
+    \caption{Field-of-view-centered fundus ROI extraction}
+    \label{alg:fundus_roi}
+    \begin{algorithmic}[1]
+        \STATE \textbf{Input:} fundus image $I$, output size $R$, threshold $\tau$
+        \STATE Convert $I$ to grayscale $I_g$ and compute $I_b(x,y)\leftarrow\mathbb{I}[I_g(x,y)>\tau]$
+        \STATE Detect external contours $\mathcal{C}$ in $I_b$
+        \IF{$\mathcal{C}=\emptyset$}
+        \STATE Resize $I$ to $R\times R$
+        \ELSE
+        \STATE Select the largest contour, compute its centroid $(c_x,c_y)$ and bounding-box dimensions $w,h$
+        \STATE Crop a boundary-clipped square centred at $(c_x,c_y)$ with side $\max(w,h)$, then resize it to $R\times R$
+        \ENDIF
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[!t]
+    \caption{Weighted gradient-based OCT ROI selection}
+    \label{alg:oct_roi}
+    \begin{algorithmic}[1]
+        \STATE \textbf{Input:} OCT B-scan $I$ of size $H\times W$, output size $R$, filter size $k$, candidate count $N_s$
+        \STATE Set $L\leftarrow\min(H,W)$ and median-filter $I$ with kernel $k$
+        \STATE Compute Sobel gradient magnitude $G$ and a centre-weighting mask $M$ over an $L\times L$ window
+        \STATE Slide the window along the longer image axis at $N_s$ candidate positions
+        \STATE Select the position maximizing $\sum_{i,j}G_p(i,j)M(i,j)$
+        \STATE Crop the corresponding square ROI and resize it to $R\times R$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[!t]
+    \caption{Foveal-center slice estimation}
+    \label{alg:foveal_detection}
+    \begin{algorithmic}[1]
+        \STATE \textbf{Input:} OCT volume $\{S_0,\ldots,S_{n-1}\}$ and search radius $r$
+        \STATE Initialize $i_0\leftarrow\lfloor n/2\rfloor$ and $i^*\leftarrow i_0$
+        \FOR{each valid slice $i$ from $i_0-r$ to $i_0+r$}
+        \STATE Apply Gaussian smoothing and Canny edge detection to $S_i$
+        \STATE Estimate the vitreous--retina interface and its arc length $L_i$
+        \IF{$L_i$ exceeds the current maximum}
+        \STATE Set $i^*\leftarrow i$
+        \ENDIF
+        \ENDFOR
+        \STATE \textbf{Return} $i^*$
+    \end{algorithmic}
+\end{algorithm}
 
 \subsection{Transformer-Based Multimodal Fusion Framework}
 \label{subsec:fusion_framework}
@@ -394,10 +439,12 @@ A $1\times1$ convolutional adapter followed by normalization projects the four-c
 
 An optional FiLM module may recalibrate the adapted representation using bounded channel-wise scale and shift parameters~\cite{perez2018film}:
 \begin{equation}
-    \hat{\mathbf{X}}_{i}^{\mathrm{film}}(k,p,q)
-    =
-    \left(1+0.1\tanh(\gamma_{i,k})\right)\hat{\mathbf{X}}_{i}(k,p,q)
-    +0.1\tanh(\beta_{i,k}),
+    \begin{aligned}
+        \hat{\mathbf{X}}_{i}^{\mathrm{film}}(k,p,q)
+         & =
+        \left(1+0.1\tanh(\gamma_{i,k})\right)\hat{\mathbf{X}}_{i}(k,p,q) \\
+         & \quad +0.1\tanh(\beta_{i,k}),
+    \end{aligned}
     \label{eq:early_film}
 \end{equation}
 where $\gamma_{i,k}$ and $\beta_{i,k}$ are predicted from a global multimodal descriptor. FiLM inclusion is determined through validation-based model selection. The adapted input is processed by a shared transformer-family encoder and regularized classifier. Early Fusion permits shared representation learning from the outset but requires a single encoder to process fundus and OCT inputs with different visual characteristics.
@@ -460,10 +507,11 @@ where $\sigma(\cdot)$ denotes a nonlinear activation. This formulation enables m
 
 An optional modality-token multi-head attention (MHA) module and gated rebalancing may be applied~\cite{song2022cross}:
 \begin{equation}
-    \hat{\mathbf{T}}_{i}=\operatorname{MHA}(\mathbf{T}_{i},\mathbf{T}_{i},\mathbf{T}_{i}),\;
-    \mathbf{h}_{i}=\hat{\mathbf{T}}_{i}[0],\;
-    \mathbf{h}_{i}^{\prime}=\mathbf{g}_{i}\odot\mathbf{h}_{i},\;
-    \mathbf{g}_{i}=\operatorname{sigmoid}\!\left(\mathbf{W}_{g}[\tilde{\mathbf{e}}_{i}^{F};\tilde{\mathbf{e}}_{i}^{O}]+\mathbf{b}_{g}\right),
+    \begin{aligned}
+        \hat{\mathbf{T}}_{i} & =\operatorname{MHA}(\mathbf{T}_{i},\mathbf{T}_{i},\mathbf{T}_{i}),
+        \\[4pt] \mathbf{h}_{i} &=\hat{\mathbf{T}}_{i}[0], \qquad \mathbf{h}_{i}^{\prime} =\mathbf{g}_{i}\odot\mathbf{h}_{i},
+        \\[4pt] \mathbf{g}_{i} &=\operatorname{sigmoid}\!\left( \mathbf{W}_{g} [\tilde{\mathbf{e}}_{i}^{F};\tilde{\mathbf{e}}_{i}^{O}] +\mathbf{b}_{g} \right).
+    \end{aligned}
     \label{eq:deep_attention}
 \end{equation}
 where $\mathbf{T}_{i}=[\mathbf{c}_{0}\,\|\,\tilde{\mathbf{e}}_{i}^{F}\,\|\,\tilde{\mathbf{e}}_{i}^{O}]$. Inclusion is validation-selected and may differ between screening and grading. The fused representation is passed through a regularized classifier.
@@ -482,10 +530,17 @@ Late Fusion combines modality-specific predictions at the decision level. As sho
 
 Separate classifier heads produce modality-specific logits. Optional branch-wise temperature scaling and an uncertainty-aware confidence network combine them as
 \begin{equation}
-    \tilde{\boldsymbol{\ell}}_{i}^{F}=\boldsymbol{\ell}_{i}^{F}/\tau_{F},\;
-    \tilde{\boldsymbol{\ell}}_{i}^{O}=\boldsymbol{\ell}_{i}^{O}/\tau_{O},\;
-    [c_{i}^{F},c_{i}^{O}]=\operatorname{Softmax}(\operatorname{MLP}(\mathbf{r}_{i})),\;
-    \hat{\boldsymbol{\ell}}_{i}=c_{i}^{F}\tilde{\boldsymbol{\ell}}_{i}^{F}+c_{i}^{O}\tilde{\boldsymbol{\ell}}_{i}^{O},
+    \begin{aligned}
+        \tilde{\boldsymbol{\ell}}_{i}^{F}
+         & =\boldsymbol{\ell}_{i}^{F}/\tau_{F},
+         & \tilde{\boldsymbol{\ell}}_{i}^{O}
+         & =\boldsymbol{\ell}_{i}^{O}/\tau_{O},                         \\
+        [c_{i}^{F},c_{i}^{O}]
+         & =\operatorname{Softmax}(\operatorname{MLP}(\mathbf{r}_{i})), \\
+        \hat{\boldsymbol{\ell}}_{i}
+         & =c_{i}^{F}\tilde{\boldsymbol{\ell}}_{i}^{F}
+        +c_{i}^{O}\tilde{\boldsymbol{\ell}}_{i}^{O},
+    \end{aligned}
     \label{eq:late_fusion}
 \end{equation}
 where $\mathbf{r}_{i}$ contains branch-logit statistics and $\tau_F,\tau_O>0$. When disabled, logits are averaged. Modality-specific Late Fusion calibration is distinct from post-hoc calibration of the final output.
@@ -548,7 +603,7 @@ Weighted random sampling is included as an optional grading strategy. When activ
 \subsubsection{Hyperparameter Optimization}
 \label{subsubsec:hyperparameter_optimization}
 
-Hyperparameter optimization is conducted separately for each fusion strategy and task using Optuna (50 trials per strategy for screening, 100 for grading), where the selected configurations are in Table~\ref{tab:selected_configs}. Model selection uses validation data only.
+Hyperparameter optimization is conducted separately for each fusion strategy and task using Optuna (50 trials per strategy for screening, 100 for grading), with the selected configurations reported in Tables~\ref{tab:selected_configs_screening} and~\ref{tab:selected_configs_grading}. Model selection uses validation data only.
 
 \subsection{Calibration and Inference}
 \label{subsec:calibration_inference}
@@ -625,73 +680,73 @@ This section reports the performance of the Early, Deep, and Late Fusion strateg
 \subsection{Selected Model Configurations}
 \label{subsec:selected_configurations}
 
-Hyperparameter optimization was performed independently for each fusion strategy and diagnostic task (50 Optuna trials per strategy for screening and 100 for grading). Transformer backbone selection was included in the same search space as the remaining architectural and training hyperparameters; hence, Table~\ref{tab:selected_configs} reports the best jointly optimized configurations for binary screening (left panel) and multiclass grading (right panel), selected by validation performance rather than backbone-matched comparisons. Accordingly, the reported differences reflect the performance of each optimized fusion pipeline and do not isolate fusion depth independently of backbone choice.
+Hyperparameter optimization was performed independently for each fusion strategy and diagnostic task (50 Optuna trials per strategy for screening and 100 for grading). Transformer backbone selection was included in the same search space as the remaining architectural and training hyperparameters; hence, Tables~\ref{tab:selected_configs_screening} and~\ref{tab:selected_configs_grading} report the best jointly optimized configurations for binary screening and multiclass grading, respectively, selected by validation performance rather than backbone-matched comparisons. Accordingly, the reported differences reflect the performance of each optimized fusion pipeline and do not isolate fusion depth independently of backbone choice.
 %Supplementary Table~S1 provides the complete search space. 
 For binary screening, FiLM modulation (Early), modality-token MHA with gating (Deep), and branch-wise temperature scaling with the uncertainty-aware confidence network (Late) were retained; for grading, Early and Late Fusion enhancements were retained, whereas Deep Fusion used simpler latent fusion without MHA and gating.
 
 The selected backbones reflect complementary inductive biases. ViT and DeiT provide global token-level self-attention for modelling long-range spatial relationships, Swin Transformer preserves hierarchical local retinal-layer and texture information, and CoAtNet combines convolutional locality with attention-based global modelling, which can be advantageous in limited-data settings. For grading, Early and Late Fusion selected CoAtNet for the fundus branch and Swin Transformer for the OCT branch, suggesting that hybrid convolution-attention representations and hierarchical local attention provide complementary multimodal information. In contrast, Deep Fusion selected ViT-small for both modalities, indicating that a shared global-attention representation space may facilitate latent-level alignment between fundus and OCT features. Overall, these results highlight the complementary roles of different backbone families and support the use of a backbone-agnostic fusion framework rather than enforcing a single encoder architecture across all fusion strategies.
 
-\begin{table*}[!t]
+\begin{table}[!t]
     \centering
-    \caption{Selected hyperparameters from Optuna optimization. Left panel: binary glaucoma screening (50 trials per fusion strategy). Right panel: multiclass glaucoma grading (100 trials per fusion strategy).}
-    \label{tab:selected_configs}
-    \tiny
+    \caption{Selected hyperparameters for binary glaucoma screening from Optuna optimization (50 trials per fusion strategy).}
+    \label{tab:selected_configs_screening}
+    \scriptsize
     \setlength{\tabcolsep}{3pt}
     \renewcommand{\arraystretch}{0.88}
-    \begin{minipage}[t]{0.48\textwidth}
-        \centering
-        \textbf{Binary screening}\\[2pt]
-        \resizebox{\linewidth}{!}{%
-            \begin{tabular}{|l|c|c|c|}
-                \hline
-                \textbf{Hyperparameter} & \textbf{Early}        & \textbf{Deep}         & \textbf{Late}         \\
-                \hline
-                Learning Rate           & $1.01{\times}10^{-4}$ & $1.19{\times}10^{-4}$ & $5.87{\times}10^{-5}$ \\
-                Fine-tune LR            & $4.90{\times}10^{-6}$ & $3.16{\times}10^{-6}$ & $6.15{\times}10^{-6}$ \\
-                Weight Decay            & $1.59{\times}10^{-5}$ & $2.36{\times}10^{-4}$ & $9.03{\times}10^{-6}$ \\
-                Batch Size              & 16                    & 8                     & 8                     \\
-                OCT Slices              & 17                    & 7                     & 23                    \\
-                Transformer Dropout     & 0.4225                & 0.2771                & 0.1751                \\
-                Classifier Dropout      & 0.4147                & 0.4680                & 0.4622                \\
-                Label Smoothing         & 0.0058                & 0.0605                & 0.0551                \\
-                Warmup Epochs           & 5                     & 4                     & 2                     \\
-                Early Stop Patience     & 8                     & 7                     & 4                     \\
-                Fundus Backbone         & \texttt{vit\_tiny}    & \texttt{deit\_tiny}   & \texttt{vit\_small}   \\
-                OCT Backbone            & \texttt{vit\_small}   & \texttt{deit\_tiny}   & \texttt{swin\_tiny}   \\
-                \hline
-                Validation AUC          & 0.9800                & 0.9972                & 0.9976                \\
-                \hline
-            \end{tabular}}
-    \end{minipage}
-    \hfill
-    \begin{minipage}[t]{0.48\textwidth}
-        \centering
-        \textbf{Multiclass grading}\\[2pt]
-        \resizebox{\linewidth}{!}{%
-            \begin{tabular}{|l|c|c|c|}
-                \hline
-                \textbf{Hyperparameter} & \textbf{Early}        & \textbf{Deep}         & \textbf{Late}         \\
-                \hline
-                Learning Rate           & $3.32{\times}10^{-5}$ & $3.22{\times}10^{-5}$ & $2.85{\times}10^{-5}$ \\
-                Weight Decay            & $7.60{\times}10^{-4}$ & $1.03{\times}10^{-3}$ & $2.08{\times}10^{-4}$ \\
-                Batch Size              & 8                     & 8                     & 8                     \\
-                OCT Slices              & 5                     & 7                     & 7                     \\
-                Transformer Dropout     & 0.090                 & 0.105                 & 0.029                 \\
-                Classifier Dropout      & 0.287                 & 0.460                 & 0.367                 \\
-                Label Smoothing         & 0.092                 & 0.094                 & 0.086                 \\
-                Warmup Epochs           & 7                     & 3                     & 5                     \\
-                Early Stop Patience     & 8                     & 12                    & 14                    \\
-                Sampling Strategy       & Unbal.                & Unbal.                & Bal.                  \\
-                Loss Type               & Focal                 & Focal                 & Focal                 \\
-                Focal $\gamma$          & 3.30                  & 3.07                  & 3.36                  \\
-                Fundus Backbone         & \texttt{coatnet\_0}   & \texttt{vit\_small}   & \texttt{coatnet\_0}   \\
-                OCT Backbone            & \texttt{swin\_tiny}   & \texttt{vit\_small}   & \texttt{swin\_tiny}   \\
-                \hline
-                Best Val. Loss          & 0.0870                & 0.0702                & 0.0774                \\
-                \hline
-            \end{tabular}}
-    \end{minipage}
-\end{table*}
+    \resizebox{\columnwidth}{!}{%
+        \begin{tabular}{|l|c|c|c|}
+            \hline
+            \textbf{Hyperparameter} & \textbf{Early}        & \textbf{Deep}         & \textbf{Late}         \\
+            \hline
+            Learning Rate           & $1.01{\times}10^{-4}$ & $1.19{\times}10^{-4}$ & $5.87{\times}10^{-5}$ \\
+            Fine-tune LR            & $4.90{\times}10^{-6}$ & $3.16{\times}10^{-6}$ & $6.15{\times}10^{-6}$ \\
+            Weight Decay            & $1.59{\times}10^{-5}$ & $2.36{\times}10^{-4}$ & $9.03{\times}10^{-6}$ \\
+            Batch Size              & 16                    & 8                     & 8                     \\
+            OCT Slices              & 17                    & 7                     & 23                    \\
+            Transformer Dropout     & 0.4225                & 0.2771                & 0.1751                \\
+            Classifier Dropout      & 0.4147                & 0.4680                & 0.4622                \\
+            Label Smoothing         & 0.0058                & 0.0605                & 0.0551                \\
+            Warmup Epochs           & 5                     & 4                     & 2                     \\
+            Early Stop Patience     & 8                     & 7                     & 4                     \\
+            Fundus Backbone         & \texttt{vit\_tiny}    & \texttt{deit\_tiny}   & \texttt{vit\_small}   \\
+            OCT Backbone            & \texttt{vit\_small}   & \texttt{deit\_tiny}   & \texttt{swin\_tiny}   \\
+            \hline
+            Validation AUC          & 0.9800                & 0.9972                & 0.9976                \\
+            \hline
+        \end{tabular}}
+\end{table}
+
+\begin{table}[!t]
+    \centering
+    \caption{Selected hyperparameters for multiclass glaucoma grading from Optuna optimization (100 trials per fusion strategy).}
+    \label{tab:selected_configs_grading}
+    \scriptsize
+    \setlength{\tabcolsep}{3pt}
+    \renewcommand{\arraystretch}{0.88}
+    \resizebox{\columnwidth}{!}{%
+        \begin{tabular}{|l|c|c|c|}
+            \hline
+            \textbf{Hyperparameter} & \textbf{Early}        & \textbf{Deep}         & \textbf{Late}         \\
+            \hline
+            Learning Rate           & $3.32{\times}10^{-5}$ & $3.22{\times}10^{-5}$ & $2.85{\times}10^{-5}$ \\
+            Weight Decay            & $7.60{\times}10^{-4}$ & $1.03{\times}10^{-3}$ & $2.08{\times}10^{-4}$ \\
+            Batch Size              & 8                     & 8                     & 8                     \\
+            OCT Slices              & 5                     & 7                     & 7                     \\
+            Transformer Dropout     & 0.090                 & 0.105                 & 0.029                 \\
+            Classifier Dropout      & 0.287                 & 0.460                 & 0.367                 \\
+            Label Smoothing         & 0.092                 & 0.094                 & 0.086                 \\
+            Warmup Epochs           & 7                     & 3                     & 5                     \\
+            Early Stop Patience     & 8                     & 12                    & 14                    \\
+            Sampling Strategy       & Unbal.                & Unbal.                & Bal.                  \\
+            Loss Type               & Focal                 & Focal                 & Focal                 \\
+            Focal $\gamma$          & 3.30                  & 3.07                  & 3.36                  \\
+            Fundus Backbone         & \texttt{coatnet\_0}   & \texttt{vit\_small}   & \texttt{coatnet\_0}   \\
+            OCT Backbone            & \texttt{swin\_tiny}   & \texttt{vit\_small}   & \texttt{swin\_tiny}   \\
+            \hline
+            Best Val. Loss          & 0.0870                & 0.0702                & 0.0774                \\
+            \hline
+        \end{tabular}}
+\end{table}
 
 \subsection{Binary Glaucoma Screening}
 \label{subsec:screening_results}
@@ -705,27 +760,27 @@ Table~\ref{performance-metrics-table} reports the official test-set screening pe
     \centering
     \caption{Official test-set performance of the selected models for binary glaucoma screening.}
     \label{performance-metrics-table}
-    %\resizebox{\columnwidth}{!}{%
-    \begin{tabular}{|l|c|c|c|}
-        \hline
-        \textbf{Metric} & \textbf{Early Fusion} & \textbf{Deep Fusion} & \textbf{Late Fusion} \\
-        \hline
-        AUC-ROC         & 0.9743                & \textbf{0.9952}      & 0.9835               \\
-        AUC-PR          & 0.9776                & \textbf{0.9951}      & 0.9812               \\
-        Accuracy        & 0.9200                & \textbf{0.9500}      & \textbf{0.9500}      \\
-        Precision (PPV) & 0.9019                & 0.9231               & \textbf{0.9400}      \\
-        Sensitivity     & 0.9387                & \textbf{0.9796}      & 0.9592               \\
-        Specificity     & 0.9019                & 0.9215               & \textbf{0.9412}      \\
-        F1-score        & 0.9200                & \textbf{0.9504}      & 0.9495               \\
-        Brier Score     & 0.0761                & \textbf{0.0396}      & 0.0434               \\
-        Cohen's Kappa   & 0.8401                & \textbf{0.9000}      & \textbf{0.9000}      \\
-        \hline
-    \end{tabular}%}
+    \resizebox{\columnwidth}{!}{%
+        \begin{tabular}{|l|c|c|c|}
+            \hline
+            \textbf{Metric} & \textbf{Early Fusion} & \textbf{Deep Fusion} & \textbf{Late Fusion} \\
+            \hline
+            AUC-ROC         & 0.9743                & \textbf{0.9952}      & 0.9835               \\
+            AUC-PR          & 0.9776                & \textbf{0.9951}      & 0.9812               \\
+            Accuracy        & 0.9200                & \textbf{0.9500}      & \textbf{0.9500}      \\
+            Precision (PPV) & 0.9019                & 0.9231               & \textbf{0.9400}      \\
+            Sensitivity     & 0.9387                & \textbf{0.9796}      & 0.9592               \\
+            Specificity     & 0.9019                & 0.9215               & \textbf{0.9412}      \\
+            F1-score        & 0.9200                & \textbf{0.9504}      & 0.9495               \\
+            Brier Score     & 0.0761                & \textbf{0.0396}      & 0.0434               \\
+            Cohen's Kappa   & 0.8401                & \textbf{0.9000}      & \textbf{0.9000}      \\
+            \hline
+        \end{tabular}}
 \end{table}
 
 All three strategies achieved AUC-ROC values above 0.97. Deep Fusion achieved the highest AUC-ROC of 0.9952 and AUC-PR of 0.9951. Deep and Late Fusion both achieved an accuracy of 0.9500 and Cohen's kappa of 0.9000. Deep Fusion produced the highest sensitivity of 0.9796 and F1-score of 0.9504, whereas Late Fusion produced the highest precision of 0.9400 and specificity of 0.9412. Deep Fusion also obtained the lowest Brier score of 0.0396, followed by Late Fusion at 0.0434.
 
-Deep Fusion correctly identified 48 of 49 glaucomatous test samples (one false negative), compared with 47 for Late Fusion and 46 for Early Fusion; Late Fusion produced the fewest false positives. Figure~\ref{fig:screen_roc_pr} shows the corresponding ROC and precision--recall curves, and Figure~\ref{fig:screen_cm} presents the confusion matrices. 
+Deep Fusion correctly identified 48 of 49 glaucomatous test samples (one false negative), compared with 47 for Late Fusion and 46 for Early Fusion; Late Fusion produced the fewest false positives. Figure~\ref{fig:screen_roc_pr} shows the corresponding ROC and precision--recall curves, and Figure~\ref{fig:screen_cm} presents the confusion matrices.
 %Training and validation curves, epoch-wise validation AUC trajectories, and the parameter, FLOP, and inference-latency analysis are provided in the Supplementary Figures~S1--S3.
 
 \begin{figure*}[!t]
@@ -769,24 +824,24 @@ Table~\ref{tab:multiclass_single_split_metrics} summarizes the official test-set
     \centering
     \caption{Official test-set performance of the selected models for multiclass glaucoma grading.}
     \label{tab:multiclass_single_split_metrics}
-    %\resizebox{\columnwidth}{!}{%
-    \begin{tabular}{|l|c|c|c|}
-        \hline
-        \textbf{Metric}              &
-        \textbf{Early Fusion}        &
-        \textbf{Deep Fusion}         &
-        \textbf{Late Fusion}                                                      \\
-        \hline
-        Accuracy                     & 0.7400 & \textbf{0.8100} & 0.7800          \\
-        F1-score (Macro)             & 0.6770 & \textbf{0.7557} & 0.7424          \\
-        F1-score (Weighted)          & 0.7386 & \textbf{0.8070} & 0.7907          \\
-        Precision (Macro)            & 0.6787 & \textbf{0.7570} & 0.7428          \\
-        Recall (Macro)               & 0.6755 & \textbf{0.7569} & 0.7504          \\
-        AUC-ROC (OvR)                & 0.8783 & 0.9129          & \textbf{0.9165} \\
-        Cohen's Kappa                & 0.5787 & \textbf{0.6923} & 0.6552          \\
-        Quadratically Weighted Kappa & 0.8065 & \textbf{0.8633} & 0.8355          \\
-        \hline
-    \end{tabular}%}
+    \resizebox{\columnwidth}{!}{%
+        \begin{tabular}{|l|c|c|c|}
+            \hline
+            \textbf{Metric}              &
+            \textbf{Early Fusion}        &
+            \textbf{Deep Fusion}         &
+            \textbf{Late Fusion}                                                      \\
+            \hline
+            Accuracy                     & 0.7400 & \textbf{0.8100} & 0.7800          \\
+            F1-score (Macro)             & 0.6770 & \textbf{0.7557} & 0.7424          \\
+            F1-score (Weighted)          & 0.7386 & \textbf{0.8070} & 0.7907          \\
+            Precision (Macro)            & 0.6787 & \textbf{0.7570} & 0.7428          \\
+            Recall (Macro)               & 0.6755 & \textbf{0.7569} & 0.7504          \\
+            AUC-ROC (OvR)                & 0.8783 & 0.9129          & \textbf{0.9165} \\
+            Cohen's Kappa                & 0.5787 & \textbf{0.6923} & 0.6552          \\
+            Quadratically Weighted Kappa & 0.8065 & \textbf{0.8633} & 0.8355          \\
+            \hline
+        \end{tabular}}
 \end{table}
 
 Deep Fusion achieved the highest accuracy of 0.8100, macro-F1 of 0.7557, weighted-F1 of 0.8070, Cohen's kappa of 0.6923, and QWK of 0.8633. Late Fusion obtained the highest OvR AUC-ROC of 0.9165, compared with 0.9129 for Deep Fusion. Early Fusion achieved an accuracy of 0.7400 and QWK of 0.8065, while Late Fusion achieved an accuracy of 0.7800 and QWK of 0.8355.
@@ -812,8 +867,7 @@ Across fusion strategies, the early-glaucoma class produced the lowest class-wis
 \subsubsection{Five-Fold Robustness Analysis}
 \label{subsubsec:grading_robustness}
 
-The grading robustness analysis followed the same development-partition procedure. %(Supplementary Table~S8). 
-Deep and Late Fusion both achieved a mean accuracy of 0.752. Deep Fusion produced the highest mean QWK of $0.820\pm0.021$, whereas Late Fusion produced the highest mean macro-F1 ($0.703\pm0.032$), weighted-F1 ($0.757\pm0.032$), and OvR AUC-ROC ($0.904\pm0.007$), these support the ordinal error analysis in Section~\ref{subsubsec:misclassification_results}. 
+The grading robustness analysis followed the same development-partition procedure. Deep and Late Fusion both achieved a mean accuracy of 0.752. Deep Fusion produced the highest mean QWK of $0.820\pm0.021$, whereas Late Fusion produced the highest mean macro-F1 ($0.703\pm0.032$), weighted-F1 ($0.757\pm0.032$), and OvR AUC-ROC ($0.904\pm0.007$). These results support the ordinal error analysis in Section~\ref{subsubsec:misclassification_results}.
 %Metric distributions are in Supplementary Figure~S13, and accumulated confusion matrices are in Supplementary Figure~S14; together
 
 \subsubsection{Bootstrap Confidence Intervals}
@@ -950,14 +1004,14 @@ Grad-CAM on fundus images and OCT-MIL attention with slice-level Grad-CAM were g
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=0.8\columnwidth]{images/fundus-xai.png}
+    \includegraphics[width=\columnwidth]{images/fundus-xai.png}
     \caption{Fundus Grad-CAM visualizations for representative test samples from the selected binary screening models.}
     \label{sfig:fundus_xai}
 \end{figure}
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=0.8\columnwidth]{images/oct-xai.png}
+    \includegraphics[width=\columnwidth]{images/oct-xai.png}
     \caption{OCT Grad-CAM visualizations for representative test samples from the selected binary screening models, showing three high-attention OCT B-scans per model.}
     \label{sfig:oct_xai}
 \end{figure}
@@ -982,12 +1036,12 @@ This study evaluated Early, Deep, and Late Fusion for binary glaucoma screening 
     \centering
     \caption{Summary of the official test-set results for binary glaucoma screening and multiclass glaucoma grading.}
     \label{tab:summary_results}
-    \resizebox{0.7\columnwidth}{!}{%
+    \resizebox{\columnwidth}{!}{%
         \begin{tabular}{|l|c|c|c|c|}
             \hline
             \multirow{2}{*}{\textbf{Fusion Strategy}} &
-            \multicolumn{2}{c|}{\textbf{Screening}}    &
-            \multicolumn{2}{c|}{\textbf{Grading}}                                                                \\
+            \multicolumn{2}{c|}{\textbf{Screening}}   &
+            \multicolumn{2}{c|}{\textbf{Grading}}                                                               \\
             \cline{2-5}
                                                       & \textbf{AUC-ROC}  & \textbf{Accuracy}
                                                       & \textbf{Accuracy} & \textbf{QWK}                        \\
@@ -1007,12 +1061,12 @@ This study evaluated Early, Deep, and Late Fusion for binary glaucoma screening 
 
 The three strategies differ in when fundus and OCT information interact. Early Fusion combines modalities before high-level encoding; because the inputs are not spatially registered, this may make it harder to preserve modality-specific structure under limited data. Deep Fusion permits separate encoders before latent integration, consistent with its stronger screening sensitivity and ordinal grading agreement; this is clinically plausible because fundus images capture optic-disc and vascular context whereas OCT captures cross-sectional retinal-layer structure, and latent fusion allows each modality to encode its own evidence before interaction. Optional latent-interaction modules benefited screening but were not selected for grading. Late Fusion showed strong specificity, precision, and fold-averaged robustness through decision-level integration.
 
-Grading errors were concentrated between adjacent severity classes (>97\% of fold-accumulated mistakes), with early glaucoma the most difficult category. OCT-MIL was particularly important for Deep Fusion (grading accuracy fell from 0.81 to 0.74 without it). Multimodal models generally outperformed unimodal baselines in ablations, while FiLM, gating, and confidence weighting produced metric-specific trade-offs. Selected backbone and OCT-slice configurations varied by fusion depth and task (Table~\ref{tab:selected_configs}).
+Grading errors were concentrated between adjacent severity classes (>97\% of fold-accumulated mistakes), with early glaucoma the most difficult category. OCT-MIL was particularly important for Deep Fusion (grading accuracy fell from 0.81 to 0.74 without it). Multimodal models generally outperformed unimodal baselines in ablations, while FiLM, gating, and confidence weighting produced metric-specific trade-offs. Selected backbone and OCT-slice configurations varied by fusion depth and task (Tables~\ref{tab:selected_configs_screening} and~\ref{tab:selected_configs_grading}).
 
 \subsection{Comparison with Previous Studies}
 \label{subsec:comparison_prior_work}
 
-Table~\ref{stab:gamma_comparison} positions the proposed models relative to representative GAMMA-based grading studies. Cross-study comparisons should be interpreted cautiously because preprocessing and evaluation procedures differ. The GAMMA challenge best submission reported QWK of 0.8549~\cite{wu2023gamma}; Deep Fusion achieved 0.8633, while GeCoM-Net~\cite{wang2024geometric} reported higher peak values 0.8840. The present contribution is competitive rather than universally state-of-the-art, with emphasis on controlled comparison of fusion depth across both screening and grading within one transformer-centric pipeline.
+Table~\ref{stab:gamma_comparison} positions the proposed models relative to representative GAMMA-based grading studies. Cross-study comparisons should be interpreted cautiously because preprocessing and evaluation procedures differ. The GAMMA challenge best submission reported QWK of 0.8549~\cite{wu2023gamma}; Deep Fusion achieved 0.8633, while GeCoM-Net~\cite{wang2024geometric} and M2F3~\cite{zhao2025enhancing} reported higher peak values of 0.8840 and 0.9015, respectively. The present contribution is competitive rather than universally state-of-the-art, with emphasis on controlled comparison of fusion depth across both screening and grading within one transformer-centric pipeline.
 
 \begin{table*}[!t]
     \centering
@@ -1051,7 +1105,13 @@ Table~\ref{stab:gamma_comparison} positions the proposed models relative to repr
             0.8840                                             &
             Geometric correspondence-based multimodal learning.                                \\
             \hline
-            
+            M2F3~\cite{zhao2025enhancing}                      &
+            Fundus + OCT                                       &
+            \textbf{0.9400}                                    &
+            \textbf{0.9015}                                    &
+            Multi-stage multimodal feature fusion for glaucoma grading.                        \\
+            \hline\hline
+
             \textbf{Proposed Early Fusion}                     &
             Fundus + OCT                                       &
             0.7400                                             &
@@ -1108,7 +1168,7 @@ The results indicate that latent-level fusion can provide an effective balance b
     ORCID: \href{https://orcid.org/0000-0002-4520-3819}{0000-0002-4520-3819}.
 \end{IEEEbiography}
 
-\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{images/gilbert-lim.png}}]{Gilbert Lim} received thePh.D. degree in computer science from the Department of Computer Science, National University of Singapore. He is currently a Postdoctoral Researcher in the fields of computer vision and machine learning, with an emphasis on their application to medical imaging. His current work at SingHealth carries on from my time at iLab and involves the characterization and diagnosis of diseases, such as diabetic retinopathy and glaucoma through the analysis of retinal fundus photographs and related modalities. His Ph.D. thesis titled "Automated Methods for Retinopathy and Glaucoma Screening."
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{images/gilbert-lim.png}}]{Gilbert Lim} received the Ph.D. degree in computer science from the Department of Computer Science, National University of Singapore. He is currently a Postdoctoral Researcher in the fields of computer vision and machine learning, with an emphasis on their application to medical imaging. His current work at SingHealth carries on from his time at iLab and involves the characterization and diagnosis of diseases, such as diabetic retinopathy and glaucoma through the analysis of retinal fundus photographs and related modalities. His Ph.D. thesis titled "Automated Methods for Retinopathy and Glaucoma Screening."
     E-mail: \href{mailto:gilbertlim@gmail.com}{gilbertlim@gmail.com}.\\
     ORCID: \href{https://orcid.org/0000-0002-5381-9250}{0000-0002-5381-9250}.
 \end{IEEEbiography}
